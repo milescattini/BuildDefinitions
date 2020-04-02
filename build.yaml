@@ -1,0 +1,116 @@
+trigger:
+  batch: true
+  branches:
+    include:
+    - master
+    
+pool:
+  vmImage: 'vs2017-win2016'
+
+jobs:
+- job: Core
+  displayName: 'Plan Core'
+  steps:
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+    displayName: 'Install Terraform 0.12.23'
+    inputs:
+      terraformVersion: 0.12.23
+
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV1@0
+    displayName: 'init Core'
+    inputs:
+      workingDirectory: terraform\core
+      backendServiceArm: 'Core'
+      backendAzureRmResourceGroupName: rg-terraformstate
+      backendAzureRmStorageAccountName: strcoreterraformstate
+      backendAzureRmContainerName: state
+      backendAzureRmKey: core.tfstate
+
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV1@0
+    displayName: 'plan Core'
+    inputs:
+      command: plan
+      workingDirectory: terraform\core
+      commandOptions: '-no-color -var-file="../variables/core.tfvars"'
+      environmentServiceNameAzureRM: 'Core'
+      backendServiceArm: 'Core'
+      backendAzureRmResourceGroupName: rg-terraformstate
+      backendAzureRmStorageAccountName: strcoreterraformstate
+      backendAzureRmContainerName: state
+      backendAzureRmKey: core.tfstate
+
+- job: UAT
+  displayName: 'Plan UAT'
+  steps:
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+    displayName: 'Install Terraform 0.12.23'
+    inputs:
+      terraformVersion: 0.12.23
+
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV1@0
+    displayName: 'init UAT'
+    inputs:
+      workingDirectory: terraform\uat
+      backendServiceArm: 'UAT'
+      backendAzureRmResourceGroupName: rg-terraformstate
+      backendAzureRmStorageAccountName: struatterraformstate
+      backendAzureRmContainerName: state
+      backendAzureRmKey: uat.tfstate
+
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV1@0
+    displayName: 'plan UAT'
+    inputs:
+      command: plan
+      workingDirectory: terraform\uat
+      commandOptions: '-no-color -var-file="../variables/uat.tfvars"'
+      environmentServiceNameAzureRM: 'UAT'
+      backendServiceArm: 'UAT'
+      backendAzureRmResourceGroupName: rg-terraformstate
+      backendAzureRmStorageAccountName: struatterraformstate
+      backendAzureRmContainerName: state
+      backendAzureRmKey: uat.tfstate
+
+- job: Prod
+  displayName: 'Plan Prod'
+  steps:
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+    displayName: 'Install Terraform 0.12.23'
+    inputs:
+      terraformVersion: 0.12.23
+
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV1@0
+    displayName: 'init Prod'
+    inputs:
+      workingDirectory: terraform\prod
+      backendServiceArm: 'Prod'
+      backendAzureRmResourceGroupName: rg-terraformstate
+      backendAzureRmStorageAccountName: strprodterraformstate
+      backendAzureRmContainerName: state
+      backendAzureRmKey: prod.tfstate
+
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV1@0
+    displayName: 'plan Prod'
+    inputs:
+      command: plan
+      workingDirectory: terraform\prod
+      commandOptions: '-no-color -var-file="../variables/prod.tfvars"'
+      environmentServiceNameAzureRM: 'Prod'
+      backendServiceArm: 'Prod'
+      backendAzureRmResourceGroupName: rg-terraformstate
+      backendAzureRmStorageAccountName: strprodterraformstate
+      backendAzureRmContainerName: state
+      backendAzureRmKey: prod.tfstate
+
+
+- job:
+  displayName: 'Publish Artifact'
+  dependsOn:
+  - Core
+  - UAT
+  - Prod
+  steps:
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish Pipeline Artifact'
+    inputs:
+      targetPath: '$(System.DefaultWorkingDirectory)\terraform'
+      artifactName: 'Terraform'
