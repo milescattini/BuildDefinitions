@@ -1,0 +1,124 @@
+
+resources:
+  repositories:
+    - repository: 'Modules'
+      type: git
+      name: DevSecOps/Terraform_Modules
+
+
+parameters:
+  ##buildSteps enables you to pass additional tasks to the base template as a param
+- name: enableBuildSteps
+  type: boolean
+  default: false
+
+- name: buildSteps
+  type: stepList
+  default: []
+
+- name: downloadModules
+  type: boolean
+  default: true
+
+- name: vmImage
+  type: string
+  default: 'ubuntu-20.04'
+
+- name: workingDirectory
+  type: string
+  default: '/'
+
+- name: terraformVersion
+  type: string
+  default: '0.12.26'
+
+- name: serviceConnectionName
+  type: string
+
+##Terraform Command Options
+- name: planOptions
+  type: string
+  default: '-no-color'
+
+##Terraform Statefile
+- name: statefileBackendKey
+  type: string
+
+- name: stateFileRG
+  type: string
+
+- name: stateFileStorageAccount
+  type: string
+
+- name: stateFileContainer
+  type: string
+  default: 'state'
+
+##Artifact Publish
+- name: enabledPublish
+  type: boolean
+  default: true
+
+- name: artifactName
+  type: string
+  default: 'Validated_Terraform'
+
+- name: artifactDirectory
+  type: string
+  default: '/'
+
+jobs:
+
+- job: stepList
+  displayName: 'Optional Parameter: Step List Task'
+  steps: ${{ parameters.buildSteps }}
+  condition: eq( ${{ parameters.enableBuildSteps }}, true )
+
+- job: ValidateTerraform
+  displayName: 'Terraform Build'
+  steps:
+  - checkout: 'Modules'
+  - checkout: self
+
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+    displayName: 'Install Terraform'
+    inputs:
+      terraformVersion: ${{ parameters.terraformVersion }}
+
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV1@0
+    displayName: 'init'
+    inputs:
+      workingDirectory: ${{ parameters.workingDirectory }}
+      backendServiceArm: ${{ parameters.serviceConnectionName }}
+      backendAzureRmResourceGroupName: ${{ parameters.stateFileRG }}
+      backendAzureRmStorageAccountName: ${{ parameters.stateFileStorageAccount }}
+      backendAzureRmContainerName: ${{ parameters.stateFileContainer }}
+      backendAzureRmKey: ${{ parameters.statefileBackendKey }}
+
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV1@0
+    displayName: 'plan'
+    inputs:
+      command: plan
+      workingDirectory: ${{ parameters.workingDirectory }}
+      commandOptions: ${{ parameters.planOptions }}
+      environmentServiceNameAzureRM: ${{ parameters.serviceConnectionName }}
+      backendServiceArm: ${{ parameters.serviceConnectionName }}
+      backendAzureRmResourceGroupName: ${{ parameters.stateFileRG}}
+      backendAzureRmStorageAccountName: ${{ parameters.stateFileStorageAccount }}
+      backendAzureRmContainerName: ${{ parameters.stateFileContainer }}
+      backendAzureRmKey: ${{ parameters.statefileBackendKey }}
+
+  - task: DeleteFiles@1
+    condition: eq( '${{ parameters.enabledPublish }}', true)
+    displayName: 'Remove terraform provider files'
+    inputs:
+      contents: |
+        **/.terraform
+
+  - task: PublishPipelineArtifact@1
+    condition: eq( '${{ parameters.enabledPublish }}', true)
+    displayName: 'Publish Pipeline Artifact'
+    inputs:
+      targetPath: ${{ parameters.artifactDirectory }}
+      artifactName: ${{ parameters.artifactName }}
+      fileCopyOptions: /xd "./.terraform"
