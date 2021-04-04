@@ -1,4 +1,4 @@
-This [template](https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#template-expressions) is used as the basis for all Terraform builds. 
+This [template](https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#template-expressions) is used as the basis for Terraform builds. 
 
 
 #### Calling Template From another Location within Azure DevOps
